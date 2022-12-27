@@ -24,6 +24,7 @@ namespace LaptopTimer
     {
         private int time { get; set; } = 0;
         private int threadActive { get; set; } = 1;
+        KeyboardHook keyboardHook = new KeyboardHook();
         public MainWindow()
         {
             InitializeComponent();
@@ -38,16 +39,30 @@ namespace LaptopTimer
             MessageBoxResult result = MessageBox.Show("Do you want to shutdown system", "WARNING", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (result == MessageBoxResult.Yes)
             {
-                Process.Start("shutdown", "/s /t 0");
+                terminateLockdown();
+                Process.Start("shutdown", "/s /t 10");
             }
             threadActive = 1;
         }
 
         private void CONTINUE_BUTTON_Click(object sender, RoutedEventArgs e)
         {
-            this.Hide();
-            time = 0;
+            terminateLockdown();
+        }
+
+        private void InitiateLockdown()
+        {
+            keyboardHook.InstallHook();
+            threadActive = 0;
+            this.Show();
+        }
+
+        private void terminateLockdown()
+        {
+            keyboardHook.UninstallHook();
             threadActive = 1;
+            time = 0;
+            this.Hide();
         }
 
         private void timerThread()
@@ -55,14 +70,15 @@ namespace LaptopTimer
             threadActive = 1;
             while (true)
             {
-                Thread.Sleep(10000);
                 if (threadActive == 1)
                 {
-                    if (time >= 60)
+                    if (time >= 3600)
                     {
-                        this.Dispatcher.Invoke(() => { this.Show(); });
+                        Dispatcher.Invoke(InitiateLockdown);
                         threadActive = 0;
+                        continue;
                     }
+                    Thread.Sleep(10000);
                     time += 10;
                 }
             }

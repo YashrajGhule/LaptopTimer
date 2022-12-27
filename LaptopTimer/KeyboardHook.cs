@@ -5,17 +5,20 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
-
+using System.Diagnostics.Tracing;
 
 namespace LaptopTimer
 {
-    internal class KeyboardHook
+    class KeyboardHook
     {
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern bool UnhookWindowsHookEx(IntPtr hwnd);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct KBDLLHOOKSTRUCT
@@ -27,6 +30,8 @@ namespace LaptopTimer
             public IntPtr dwExtraInfo;
         }
 
+        private IntPtr g_hHook;
+
         private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
         private static IntPtr KeyboardHookProc(int nCode, IntPtr wParam, IntPtr lParam)
@@ -35,12 +40,18 @@ namespace LaptopTimer
             if (nCode == 0)
             {
 
-                // Check if the key was pressed (i.e. wParam == WM_KEYDOWN)
-                if (wParam == (IntPtr)0x0100)
+                // Cast the lParam parameter to a KBDLLHOOKSTRUCT structure
+                KBDLLHOOKSTRUCT keyboardHookStruct = (KBDLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(KBDLLHOOKSTRUCT));
+                switch (wParam)
                 {
-                    // Cast the lParam parameter to a KBDLLHOOKSTRUCT structure
-                    KBDLLHOOKSTRUCT keyboardHookStruct = (KBDLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(KBDLLHOOKSTRUCT));
-                    return 1;
+                    case 256:
+                        return 1;
+
+                    case 260:
+                        return 1;
+
+                    default:
+                        break;
                 }
             }
 
@@ -48,5 +59,19 @@ namespace LaptopTimer
             return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
         }
 
+        public KeyboardHook()
+        {
+
+        }
+        public IntPtr InstallHook()
+        {
+            g_hHook = SetWindowsHookEx(13, KeyboardHookProc, 0, 0);
+            return g_hHook;
+        }
+
+        public bool UninstallHook()
+        {
+            return UnhookWindowsHookEx(g_hHook);
+        }
     }
 }
